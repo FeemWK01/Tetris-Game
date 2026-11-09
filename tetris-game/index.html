@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tetris Arcade - Online Leaderboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Chakra+Petch', sans-serif;
+      touch-action: manipulation;
+    }
+    .retro-border {
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2), inset 0 0 15px rgba(56, 189, 248, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-2 select-none overflow-x-hidden">
+
+  <!-- Header -->
+  <header class="w-full max-w-md flex justify-between items-center mb-3 px-2">
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
+      <h1 class="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">TETRIS ONLINE</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btn-open-leaderboard" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-sm">
+        <i class="fa-solid fa-trophy"></i>
+        <span>อันดับ</span>
+      </button>
+      <button id="btn-sound" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+        <i class="fa-solid fa-volume-high"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Game Container -->
+  <main class="w-full max-w-md flex gap-3 justify-center items-start">
+    
+    <!-- Left Column: Hold & Stats -->
+    <div class="flex flex-col gap-3 w-24">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center flex flex-col items-center">
+        <span class="text-xs text-slate-400 font-semibold mb-1">HOLD (C)</span>
+        <canvas id="hold-canvas" width="70" height="70" class="bg-slate-950/60 rounded-lg border border-slate-800/80"></canvas>
+      </div>
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center space-y-2">
+        <div>
+          <span class="text-[10px] text-slate-400 block uppercase tracking-wider">คะแนน</span>
+          <span id="score-display" class="text-lg font-bold text-cyan-400">0</span>
+        </div>
+        <div class="border-t border-slate-800/80 pt-1.5">
+          <span class="text-[10px] text-slate-400 block uppercase tracking-wider">เลเวล</span>
+          <span id="level-display" class="text-base font-bold text-indigo-400">1</span>
+        </div>
+        <div class="border-t border-slate-800/80 pt-1.5">
+          <span class="text-[10px] text-slate-400 block uppercase tracking-wider">แถว</span>
+          <span id="lines-display" class="text-base font-bold text-emerald-400">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Tetris Board -->
+    <div class="relative bg-slate-900 border-2 border-cyan-500/30 rounded-2xl p-1.5 retro-border shadow-2xl">
+      <canvas id="tetris-canvas" width="240" height="480" class="block bg-slate-950 rounded-xl"></canvas>
+
+      <!-- Pause Overlay -->
+      <div id="pause-overlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3">
+        <i class="fa-solid fa-pause text-4xl text-cyan-400 animate-bounce"></i>
+        <span class="text-xl font-bold tracking-widest text-slate-200">เกมหยุดชั่วคราว</span>
+        <span class="text-xs text-slate-400">กด P หรือคลิกปุ่มเพื่อเล่นต่อ</span>
+      </div>
+
+      <!-- Game Over Modal -->
+      <div id="game-over-overlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-4 text-center z-20">
+        <div class="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl mb-2 border border-rose-500/30">
+          <i class="fa-solid fa-skull"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-rose-400 mb-1">GAME OVER</h2>
+        <p class="text-xs text-slate-400 mb-3">คะแนนของคุณ: <span id="final-score" class="text-cyan-400 font-bold text-base">0</span></p>
+
+        <!-- Submit to Global Leaderboard Box -->
+        <div class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 mb-3 text-left">
+          <label class="text-[11px] text-amber-300 font-semibold block mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-globe text-xs"></i> ส่งคะแนนขึ้นบอร์ดออนไลน์
+          </label>
+          <div class="flex gap-1.5">
+            <input type="text" id="player-name-input" maxlength="12" placeholder="ใส่ชื่อของคุณ..." class="bg-slate-950 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:border-cyan-400 text-slate-200">
+            <button id="btn-submit-score" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition active:scale-95 disabled:opacity-50">ส่ง</button>
+          </div>
+          <span id="submit-status" class="text-[10px] text-slate-400 block mt-1"></span>
+        </div>
+
+        <button id="btn-restart" class="w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-xl shadow-lg transition active:scale-95 text-sm flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate-right"></i> เล่นใหม่อีกครั้ง
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Next Piece & Controls -->
+    <div class="flex flex-col gap-3 w-24">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center flex flex-col items-center">
+        <span class="text-xs text-slate-400 font-semibold mb-1">NEXT</span>
+        <canvas id="next-canvas" width="70" height="70" class="bg-slate-950/60 rounded-lg border border-slate-800/80"></canvas>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <button id="btn-pause" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95">
+          <i class="fa-solid fa-pause"></i> พัก
+        </button>
+        <button id="btn-quick-restart" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95">
+          <i class="fa-solid fa-arrows-rotate"></i> เริ่มใหม่
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Controls (D-Pad Touch) -->
+  <div class="w-full max-w-md mt-4 grid grid-cols-3 gap-2 px-4 sm:hidden">
+    <div class="flex gap-2">
+      <button id="ctrl-left" class="flex-1 py-3 bg-slate-800/80 active:bg-slate-700 rounded-xl border border-slate-700 text-xl text-slate-200 flex items-center justify-center">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <button id="ctrl-right" class="flex-1 py-3 bg-slate-800/80 active:bg-slate-700 rounded-xl border border-slate-700 text-xl text-slate-200 flex items-center justify-center">
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+    <div class="flex gap-2">
+      <button id="ctrl-rotate" class="flex-1 py-3 bg-cyan-600/30 active:bg-cyan-600/50 rounded-xl border border-cyan-500/40 text-xl text-cyan-300 flex items-center justify-center">
+        <i class="fa-solid fa-rotate"></i>
+      </button>
+      <button id="ctrl-down" class="flex-1 py-3 bg-slate-800/80 active:bg-slate-700 rounded-xl border border-slate-700 text-xl text-slate-200 flex items-center justify-center">
+        <i class="fa-solid fa-arrow-down"></i>
+      </button>
+    </div>
+    <div class="flex gap-2">
+      <button id="ctrl-hold" class="flex-1 py-3 bg-slate-800/80 active:bg-slate-700 rounded-xl border border-slate-700 text-xs font-bold text-slate-300 flex items-center justify-center">
+        HOLD
+      </button>
+      <button id="ctrl-drop" class="flex-1 py-3 bg-amber-500/30 active:bg-amber-500/50 rounded-xl border border-amber-500/40 text-xl text-amber-400 flex items-center justify-center">
+        <i class="fa-solid fa-angles-down"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal Dialog -->
+  <div id="leaderboard-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+      <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+        <div class="flex items-center gap-2 text-amber-400">
+          <i class="fa-solid fa-trophy text-lg"></i>
+          <span class="font-bold text-base">กระดานคะแนนออนไลน์</span>
+        </div>
+        <button id="btn-close-leaderboard" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Realtime Status Indicator -->
+      <div class="px-3 py-1.5 bg-slate-950/30 border-b border-slate-800/50 flex justify-between items-center text-[11px] text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          เชื่อมต่อ Cloud เรียลไทม์
+        </span>
+        <span id="player-count">Top 10 ผู้เล่น</span>
+      </div>
+
+      <!-- Score List -->
+      <div id="leaderboard-list" class="p-3 overflow-y-auto space-y-2 flex-1">
+        <div class="text-center py-6 text-slate-500 text-xs">กำลังโหลดคะแนนจากคลาวด์...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Scripts (Modular SDK v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    // ข้อมูล Firebase ของคุณที่เชื่อมต่อโดยตรง
+    const firebaseConfig = {
+      apiKey: "AIzaSyCXDQ5XrLXuG4HjK1TPIljGd-0qJ1yafFk",
+      authDomain: "tetris-online-game-b67e9.firebaseapp.com",
+      projectId: "tetris-online-game-b67e9",
+      storageBucket: "tetris-online-game-b67e9.firebasestorage.app",
+      messagingSenderId: "322155456791",
+      appId: "1:322155456791:web:3096666f084b10ab2baf52",
+      measurementId: "G-X4PZPLQX6G"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    signInAnonymously(auth).then(res => {
+      currentUser = res.user;
+    }).catch(err => console.error("Auth error:", err));
+
+    // Listen Realtime Leaderboard
+    const scoresRef = collection(db, "leaderboard");
+    onSnapshot(scoresRef, (snapshot) => {
+      const scores = [];
+      snapshot.forEach(doc => scores.push({ id: doc.id, ...doc.data() }));
+      scores.sort((a, b) => (b.score || 0) - (a.score || 0));
+      renderLeaderboard(scores.slice(0, 10));
+    }, (err) => {
+      console.error("Firestore Listen Error:", err);
+    });
+
+    function renderLeaderboard(topScores) {
+      const listEl = document.getElementById("leaderboard-list");
+      if (!topScores.length) {
+        listEl.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">ยังไม่มีสถิติคะแนน เป็นคนแรกที่พิชิตเลย!</div>`;
+        return;
+      }
+      listEl.innerHTML = topScores.map((item, index) => {
+        let badge = index === 0 ? 'bg-amber-400 text-slate-950 font-bold' :
+                    index === 1 ? 'bg-slate-300 text-slate-950 font-bold' :
+                    index === 2 ? 'bg-amber-700 text-slate-100 font-bold' : 'bg-slate-800 text-slate-400';
+        return `
+          <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950/40 border border-slate-800/80">
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-lg ${badge} flex items-center justify-center text-xs">${index + 1}</span>
+              <div>
+                <span class="text-xs font-semibold text-slate-200 block truncate max-w-[120px]">${item.name || 'Anonymous'}</span>
+                <span class="text-[10px] text-slate-500">Lv. ${item.level || 1}</span>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-cyan-400">${(item.score || 0).toLocaleString()}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Submit Score Function
+    window.submitScoreToFirebase = async function(name, score, level) {
+      if (!name.trim()) return false;
+      try {
+        await addDoc(scoresRef, {
+          name: name.trim(),
+          score: Number(score),
+          level: Number(level),
+          uid: currentUser ? currentUser.uid : 'anon',
+          createdAt: serverTimestamp()
+        });
+        return true;
+      } catch (e) {
+        console.error("Submit Error:", e);
+        return false;
+      }
+    };
+  </script>
+
+  <!-- Core Game Logic -->
+  <script>
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 24;
+
+    const canvas = document.getElementById("tetris-canvas");
+    const ctx = canvas.getContext("2d");
+    const nextCanvas = document.getElementById("next-canvas");
+    const nextCtx = nextCanvas.getContext("2d");
+    const holdCanvas = document.getElementById("hold-canvas");
+    const holdCtx = holdCanvas.getContext("2d");
+
+    const COLORS = {
+      I: '#06b6d4', // Cyan
+      O: '#eab308', // Yellow
+      T: '#a855f7', // Purple
+      S: '#22c55e', // Green
+      Z: '#ef4444', // Red
+      J: '#3b82f6', // Blue
+      L: '#f97316'  // Orange
+    };
+
+    const SHAPES = {
+      I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+      O: [[1,1],[1,1]],
+      T: [[0,1,0],[1,1,1],[0,0,0]],
+      S: [[0,1,1],[1,1,0],[0,0,0]],
+      Z: [[1,1,0],[0,1,1],[0,0,0]],
+      J: [[1,0,0],[1,1,1],[0,0,0]],
+      L: [[0,0,1],[1,1,1],[0,0,0]]
+    };
+
+    let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    let score = 0;
+    let lines = 0;
+    let level = 1;
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+    let isPaused = false;
+    let isGameOver = false;
+    let canHold = true;
+
+    let currentPiece = null;
+    let nextPiece = null;
+    let holdPiece = null;
+
+    function createPiece(type) {
+      return {
+        type,
+        matrix: SHAPES[type].map(row => [...row]),
+        color: COLORS[type],
+        x: Math.floor(COLS / 2) - Math.ceil(SHAPES[type][0].length / 2),
+        y: 0
+      };
+    }
+
+    const PIECES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+    function getRandomPiece() {
+      const type = PIECES[Math.floor(Math.random() * PIECES.length)];
+      return createPiece(type);
+    }
+
+    function collide(b, piece, offset = { x: 0, y: 0 }) {
+      const m = piece.matrix;
+      for (let y = 0; y < m.length; ++y) {
+        for (let x = 0; x < m[y].length; ++x) {
+          if (m[y][x] !== 0) {
+            const newX = piece.x + x + offset.x;
+            const newY = piece.y + y + offset.y;
+            if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+            if (newY >= 0 && b[newY][newX] !== 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function merge(b, piece) {
+      piece.matrix.forEach((row, y) => {
+        row.forEach((val, x) => {
+          if (val !== 0 && piece.y + y >= 0) {
+            b[piece.y + y][piece.x + x] = piece.color;
+          }
+        });
+      });
+    }
+
+    function rotate(matrix) {
+      const N = matrix.length;
+      return matrix[0].map((_, i) => matrix.map(row => row[i]).reverse());
+    }
+
+    function playerRotate() {
+      const orig = currentPiece.matrix;
+      currentPiece.matrix = rotate(currentPiece.matrix);
+      let offset = 0;
+      while (collide(board, currentPiece)) {
+        currentPiece.x += offset > 0 ? -offset : -offset + 1;
+        offset = -(offset + (offset > 0 ? 1 : -1));
+        if (Math.abs(offset) > currentPiece.matrix[0].length) {
+          currentPiece.matrix = orig;
+          return;
+        }
+      }
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      for (let y = ROWS - 1; y >= 0; --y) {
+        if (board[y].every(cell => cell !== 0)) {
+          board.splice(y, 1);
+          board.unshift(Array(COLS).fill(0));
+          linesCleared++;
+          y++;
+        }
+      }
+      if (linesCleared > 0) {
+        const lineScores = [0, 100, 300, 500, 800];
+        score += lineScores[linesCleared] * level;
+        lines += linesCleared;
+        level = Math.floor(lines / 10) + 1;
+        dropInterval = Math.max(120, 1000 - (level - 1) * 90);
+        updateUI();
+      }
+    }
+
+    function playerDrop() {
+      if (collide(board, currentPiece, { x: 0, y: 1 })) {
+        merge(board, currentPiece);
+        clearLines();
+        spawnNextPiece();
+      } else {
+        currentPiece.y++;
+      }
+      dropCounter = 0;
+    }
+
+    function hardDrop() {
+      while (!collide(board, currentPiece, { x: 0, y: 1 })) {
+        currentPiece.y++;
+        score += 2;
+      }
+      playerDrop();
+      updateUI();
+    }
+
+    function spawnNextPiece() {
+      currentPiece = nextPiece || getRandomPiece();
+      nextPiece = getRandomPiece();
+      canHold = true;
+      if (collide(board, currentPiece)) {
+        gameOver();
+      }
+      drawPreview(nextCtx, nextPiece);
+    }
+
+    function playerHold() {
+      if (!canHold) return;
+      if (!holdPiece) {
+        holdPiece = createPiece(currentPiece.type);
+        spawnNextPiece();
+      } else {
+        const temp = holdPiece.type;
+        holdPiece = createPiece(currentPiece.type);
+        currentPiece = createPiece(temp);
+      }
+      canHold = false;
+      drawPreview(holdCtx, holdPiece);
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      document.getElementById("final-score").innerText = score.toLocaleString();
+      document.getElementById("game-over-overlay").classList.remove("hidden");
+    }
+
+    function restartGame() {
+      board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      score = 0;
+      lines = 0;
+      level = 1;
+      dropInterval = 1000;
+      isGameOver = false;
+      isPaused = false;
+      holdPiece = null;
+      holdCtx.clearRect(0, 0, 70, 70);
+      document.getElementById("game-over-overlay").classList.add("hidden");
+      document.getElementById("pause-overlay").classList.add("hidden");
+      document.getElementById("submit-status").innerText = "";
+      document.getElementById("btn-submit-score").disabled = false;
+      updateUI();
+      nextPiece = getRandomPiece();
+      spawnNextPiece();
+    }
+
+    function updateUI() {
+      document.getElementById("score-display").innerText = score.toLocaleString();
+      document.getElementById("level-display").innerText = level;
+      document.getElementById("lines-display").innerText = lines;
+    }
+
+    function drawBlock(ctx, x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    }
+
+    function drawPreview(pCtx, piece) {
+      pCtx.clearRect(0, 0, 70, 70);
+      if (!piece) return;
+      const m = piece.matrix;
+      const size = 14;
+      const offsetX = (70 - m[0].length * size) / 2;
+      const offsetY = (70 - m.length * size) / 2;
+      m.forEach((row, y) => {
+        row.forEach((val, x) => {
+          if (val !== 0) {
+            pCtx.fillStyle = piece.color;
+            pCtx.fillRect(offsetX + x * size, offsetY + y * size, size, size);
+            pCtx.strokeStyle = "rgba(255,255,255,0.3)";
+            pCtx.strokeRect(offsetX + x * size, offsetY + y * size, size, size);
+          }
+        });
+      });
+    }
+
+    function draw() {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * BLOCK_SIZE, 0);
+        ctx.lineTo(x * BLOCK_SIZE, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * BLOCK_SIZE);
+        ctx.lineTo(canvas.width, y * BLOCK_SIZE);
+        ctx.stroke();
+      }
+
+      // Placed Blocks
+      board.forEach((row, y) => {
+        row.forEach((cell, x) => {
+          if (cell !== 0) drawBlock(ctx, x, y, cell);
+        });
+      });
+
+      // Ghost Piece
+      if (currentPiece && !isGameOver) {
+        let ghostY = currentPiece.y;
+        while (!collide(board, currentPiece, { x: 0, y: ghostY - currentPiece.y + 1 })) {
+          ghostY++;
+        }
+        currentPiece.matrix.forEach((row, y) => {
+          row.forEach((val, x) => {
+            if (val !== 0) {
+              ctx.strokeStyle = currentPiece.color;
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect((currentPiece.x + x) * BLOCK_SIZE, (ghostY + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            }
+          });
+        });
+
+        // Current Piece
+        currentPiece.matrix.forEach((row, y) => {
+          row.forEach((val, x) => {
+            if (val !== 0) drawBlock(ctx, currentPiece.x + x, currentPiece.y + y, currentPiece.color);
+          });
+        });
+      }
+    }
+
+    function update(time = 0) {
+      const deltaTime = time - lastTime;
+      lastTime = time;
+
+      if (!isPaused && !isGameOver && currentPiece) {
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
+          playerDrop();
+        }
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    // Keyboard Listeners
+    window.addEventListener("keydown", e => {
+      if (isGameOver) return;
+      if (e.code === "KeyP" || e.code === "Escape") {
+        isPaused = !isPaused;
+        document.getElementById("pause-overlay").classList.toggle("hidden", !isPaused);
+        return;
+      }
+      if (isPaused) return;
+
+      if (e.code === "ArrowLeft") {
+        if (!collide(board, currentPiece, { x: -1, y: 0 })) currentPiece.x--;
+      } else if (e.code === "ArrowRight") {
+        if (!collide(board, currentPiece, { x: 1, y: 0 })) currentPiece.x++;
+      } else if (e.code === "ArrowUp" || e.code === "KeyX") {
+        playerRotate();
+      } else if (e.code === "ArrowDown") {
+        playerDrop();
+        score += 1;
+        updateUI();
+      } else if (e.code === "Space") {
+        e.preventDefault();
+        hardDrop();
+      } else if (e.code === "KeyC" || e.code === "ShiftLeft") {
+        playerHold();
+      }
+    });
+
+    // Touch Buttons
+    document.getElementById("ctrl-left").onclick = () => { if (!isPaused && !isGameOver && !collide(board, currentPiece, { x: -1, y: 0 })) currentPiece.x--; };
+    document.getElementById("ctrl-right").onclick = () => { if (!isPaused && !isGameOver && !collide(board, currentPiece, { x: 1, y: 0 })) currentPiece.x++; };
+    document.getElementById("ctrl-rotate").onclick = () => { if (!isPaused && !isGameOver) playerRotate(); };
+    document.getElementById("ctrl-down").onclick = () => { if (!isPaused && !isGameOver) { playerDrop(); score += 1; updateUI(); } };
+    document.getElementById("ctrl-drop").onclick = () => { if (!isPaused && !isGameOver) hardDrop(); };
+    document.getElementById("ctrl-hold").onclick = () => { if (!isPaused && !isGameOver) playerHold(); };
+
+    // Buttons
+    document.getElementById("btn-restart").onclick = restartGame;
+    document.getElementById("btn-quick-restart").onclick = restartGame;
+    document.getElementById("btn-pause").onclick = () => {
+      isPaused = !isPaused;
+      document.getElementById("pause-overlay").classList.toggle("hidden", !isPaused);
+    };
+
+    // Leaderboard Modal
+    const modal = document.getElementById("leaderboard-modal");
+    document.getElementById("btn-open-leaderboard").onclick = () => modal.classList.remove("hidden");
+    document.getElementById("btn-close-leaderboard").onclick = () => modal.classList.add("hidden");
+
+    // Submit Score Trigger
+    document.getElementById("btn-submit-score").onclick = async () => {
+      const nameInput = document.getElementById("player-name-input");
+      const statusEl = document.getElementById("submit-status");
+      const submitBtn = document.getElementById("btn-submit-score");
+      const name = nameInput.value.trim();
+
+      if (!name) {
+        statusEl.innerText = "กรุณากรอกชื่อก่อนส่ง";
+        statusEl.className = "text-[10px] text-rose-400 block mt-1";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      statusEl.innerText = "กำลังส่งคะแนน...";
+      statusEl.className = "text-[10px] text-cyan-400 block mt-1";
+
+      const ok = await window.submitScoreToFirebase(name, score, level);
+      if (ok) {
+        statusEl.innerText = "บันทึกลงกระดานเรียบร้อยแล้ว!";
+        statusEl.className = "text-[10px] text-emerald-400 block mt-1";
+      } else {
+        statusEl.innerText = "ส่งไม่สำเร็จ โปรดลองอีกครั้ง";
+        statusEl.className = "text-[10px] text-rose-400 block mt-1";
+        submitBtn.disabled = false;
+      }
+    };
+
+    // Start
+    restartGame();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
